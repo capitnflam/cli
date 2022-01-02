@@ -439,20 +439,6 @@ namespace cli
             return Insert(cmdName, "", help, parDesc, f, &F::operator());
         }
 
-        template <typename F>
-        CmdHandler Insert(const std::string& cmdName, const std::string& shortCmdName, F f, const std::string& help = "", const std::vector<std::string>& parDesc={})
-        {
-            // dispatch to private Insert methods
-            return Insert(cmdName, shortCmdName, help, parDesc, f, &F::operator());
-        }
-
-        template <typename F>
-        CmdHandler Insert(const std::string& cmdName, const std::string& shortCmdName, const std::vector<std::string>& parDesc, F f, const std::string& help = "")
-        {
-            // dispatch to private Insert methods
-            return Insert(cmdName, shortCmdName, help, parDesc, f, &F::operator());
-        }
-
         CmdHandler Insert(std::unique_ptr<Command>&& cmd)
         {
             std::shared_ptr<Command> scmd(std::move(cmd));
