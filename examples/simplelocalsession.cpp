@@ -39,7 +39,7 @@ int main()
     // setup cli
 
     auto rootMenu = make_unique< Menu >( "cli" );
-    rootMenu -> Insert(
+    rootMenu -> InsertShort(
             "hello",
             "h",
             [](std::ostream& out){ out << "Hello, world\n"; },
