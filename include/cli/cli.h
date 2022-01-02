@@ -238,7 +238,7 @@ namespace cli
     class Command
     {
     public:
-        explicit Command(std::string _name) : name(std::move(_name)), enabled(true) {}
+        explicit Command(std::string _name, std::string _shortName = "") : name(std::move(_name)), shortName(std::move(_shortName)), enabled(true) {}
         virtual ~Command() noexcept = default;
 
         // disable copy and move semantics
@@ -259,13 +259,16 @@ namespace cli
         {
             if (!enabled) return {};
             if (name.rfind(line, 0) == 0) return {name}; // name starts_with line
+            if (shortName != "" && shortName.rfind(line, 0) == 0) return {name}; // name starts_with line
             return {};
         }
     protected:
         const std::string& Name() const { return name; }
+        const std::string& ShortName() const { return shortName; }
         bool IsEnabled() const { return enabled; }
     private:
         const std::string name;
+        const std::string shortName;
         bool enabled;
     };
 
@@ -426,14 +429,28 @@ namespace cli
         CmdHandler Insert(const std::string& cmdName, F f, const std::string& help = "", const std::vector<std::string>& parDesc={})
         {
             // dispatch to private Insert methods
-            return Insert(cmdName, help, parDesc, f, &F::operator());
+            return Insert(cmdName, "", help, parDesc, f, &F::operator());
         }
 
         template <typename F>
         CmdHandler Insert(const std::string& cmdName, const std::vector<std::string>& parDesc, F f, const std::string& help = "")
         {
             // dispatch to private Insert methods
-            return Insert(cmdName, help, parDesc, f, &F::operator());
+            return Insert(cmdName, "", help, parDesc, f, &F::operator());
+        }
+
+        template <typename F>
+        CmdHandler Insert(const std::string& cmdName, const std::string& shortCmdName, F f, const std::string& help = "", const std::vector<std::string>& parDesc={})
+        {
+            // dispatch to private Insert methods
+            return Insert(cmdName, shortCmdName, help, parDesc, f, &F::operator());
+        }
+
+        template <typename F>
+        CmdHandler Insert(const std::string& cmdName, const std::string& shortCmdName, const std::vector<std::string>& parDesc, F f, const std::string& help = "")
+        {
+            // dispatch to private Insert methods
+            return Insert(cmdName, shortCmdName, help, parDesc, f, &F::operator());
         }
 
         CmdHandler Insert(std::unique_ptr<Command>&& cmd)
@@ -546,13 +563,13 @@ namespace cli
     private:
 
         template <typename F, typename R, typename ... Args>
-        CmdHandler Insert(const std::string& name, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, Args...) const);
+        CmdHandler Insert(const std::string& name, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, Args...) const);
 
         template <typename F, typename R>
-        CmdHandler Insert(const std::string& name, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, const std::vector<std::string>&) const);
+        CmdHandler Insert(const std::string& name, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, const std::vector<std::string>&) const);
 
         template <typename F, typename R>
-        CmdHandler Insert(const std::string& name, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, std::vector<std::string>) const);
+        CmdHandler Insert(const std::string& name, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, std::vector<std::string>) const);
 
         Menu* parent{ nullptr };
         const std::string description;
@@ -628,11 +645,12 @@ namespace cli
 
         VariadicFunctionCommand(
             const std::string& _name,
+            const std::string& _shortName,
             F fun,
             std::string desc,
             std::vector<std::string> parDesc
         )
-            : Command(_name), func(std::move(fun)), description(std::move(desc)), parameterDesc(std::move(parDesc))
+            : Command(_name, _shortName), func(std::move(fun)), description(std::move(desc)), parameterDesc(std::move(parDesc))
         {
         }
 
@@ -641,7 +659,7 @@ namespace cli
             if (!IsEnabled()) return false;
             const std::size_t paramSize = sizeof...(Args);
             if (cmdLine.size() != paramSize+1) return false;
-            if (Name() == cmdLine[0])
+            if (Name() == cmdLine[0] || ShortName() == cmdLine[0])
             {
                 try
                 {
@@ -660,7 +678,9 @@ namespace cli
         void Help(std::ostream& out) const override
         {
             if (!IsEnabled()) return;
-            out << " - " << Name();
+            out << " - ";
+            if (ShortName() != "") { out << ShortName() << ","; }
+            out << Name();
             if (parameterDesc.empty())
                 PrintDesc<Args...>::Dump(out);
             for (auto& s: parameterDesc)
@@ -686,11 +706,12 @@ namespace cli
 
         FreeformCommand(
             const std::string& _name,
+            const std::string& _shortName,
             F fun,
             std::string desc,
             std::vector<std::string> parDesc
         )
-            : Command(_name), func(std::move(fun)), description(std::move(desc)), parameterDesc(std::move(parDesc))
+            : Command(_name, _shortName), func(std::move(fun)), description(std::move(desc)), parameterDesc(std::move(parDesc))
         {
         }
 
@@ -698,7 +719,7 @@ namespace cli
         {
             if (!IsEnabled()) return false;
             assert(!cmdLine.empty());
-            if (Name() == cmdLine[0])
+            if (Name() == cmdLine[0] || ShortName() == cmdLine[0])
             {
                 func(session.OutStream(), std::vector<std::string>(std::next(cmdLine.begin()), cmdLine.end()));
                 return true;
@@ -708,7 +729,9 @@ namespace cli
         void Help(std::ostream& out) const override
         {
             if (!IsEnabled()) return;
-            out << " - " << Name();
+            out << " - ";
+            if (ShortName() != "") { out << ShortName() << ","; }
+            out << Name();
             if (parameterDesc.empty())
                 PrintDesc<std::vector<std::string>>::Dump(out);            
             for (auto& s: parameterDesc)
@@ -824,21 +847,21 @@ namespace cli
     // Menu implementation
 
     template <typename F, typename R, typename ... Args>
-    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, Args...) const )
+    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, Args...) const )
     {
-        return Insert(std::make_unique<VariadicFunctionCommand<F, Args ...>>(cmdName, f, help, parDesc));
+        return Insert(std::make_unique<VariadicFunctionCommand<F, Args ...>>(cmdName, shortCmdName, f, help, parDesc));
     }
 
     template <typename F, typename R>
-    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, const std::vector<std::string>& args) const )
+    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, const std::vector<std::string>& args) const )
     {
-        return Insert(std::make_unique<FreeformCommand<F>>(cmdName, f, help, parDesc));
+        return Insert(std::make_unique<FreeformCommand<F>>(cmdName, shortCmdName, f, help, parDesc));
     }
 
     template <typename F, typename R>
-    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, std::vector<std::string> args) const )
+    CmdHandler Menu::Insert(const std::string& cmdName, const std::string& shortCmdName, const std::string& help, const std::vector<std::string>& parDesc, F& f, R (F::*)(std::ostream& out, std::vector<std::string> args) const )
     {
-        return Insert(std::make_unique<FreeformCommand<F>>(cmdName, f, help, parDesc));
+        return Insert(std::make_unique<FreeformCommand<F>>(cmdName, shortCmdName, f, help, parDesc));
     }
 
 } // namespace cli

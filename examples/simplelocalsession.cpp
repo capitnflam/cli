@@ -41,6 +41,7 @@ int main()
     auto rootMenu = make_unique< Menu >( "cli" );
     rootMenu -> Insert(
             "hello",
+            "h",
             [](std::ostream& out){ out << "Hello, world\n"; },
             "Print hello world" );
     rootMenu -> Insert(
