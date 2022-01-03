@@ -37,7 +37,7 @@
 
 #include <asio/version.hpp>
 
-#if ASIO_VERSION < 101300
+#if ASIO_VERSION < 101100
     #include "oldstandaloneasiolib.h"
     namespace cli { namespace detail { using StandaloneAsioLib = OldStandaloneAsioLib; } }
 #else
